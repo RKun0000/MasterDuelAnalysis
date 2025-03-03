@@ -1,19 +1,20 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 from deck_management import DeckManagementWindow, SeasonManagementWindow
 from record_modify import RecordModifyWindow
 from data_manager import load_data, save_data
-from tools import get_current_season
+from tools import get_current_season, get_dc_season
 from charts import OpponentDeckPieChart, MyDeckPieChart
 from tools import rank_list, compute_streaks
 import sys
 
 
 class CardRecordApp:
+
     def __init__(self, root):
         self.root = root
         self.root.title("Master Duel Analysis")
-
+        # init windows
         self.my_deck_window = None
         self.opp_deck_window = None
         self.season_window = None
@@ -23,16 +24,31 @@ class CardRecordApp:
 
         self.my_decks = []
         self.opp_decks = []
-        self.records = []
         self.record_id_counter = 0
-        self.sort_descending = False
+        self.sort_descending = True
+
+        self.records_rank = []
         self.current_season = get_current_season()
+
+        self.records_dc = []
+        self.current_season_dc = get_dc_season()
+
         self.stats_deck_var = tk.StringVar()
         self.filter_var = tk.StringVar(value="全部")
 
+        self.mode = "rank_mode"
+        self.mode_var = tk.StringVar(value=self.mode)
+
         data = load_data()
         if data is not None:
-            self.my_decks, self.opp_decks, self.records, self.current_season = data
+            (
+                self.my_decks,
+                self.opp_decks,
+                self.records_rank,
+                self.current_season,
+                self.records_dc,
+                self.current_season_dc,
+            ) = data
         else:
             # 若讀取失敗，不覆蓋原檔案
             messagebox.showwarning("資料載入失敗")
@@ -42,12 +58,8 @@ class CardRecordApp:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
         self.developer_label = tk.Label(
-            self.root,
-            text="Developer : RK",
-            font=("Arial", 8),
-            fg="gray",
+            self.root, text="Developer : RK", font=("Arial", 8), fg="gray"
         )
-
         self.developer_label.place(relx=1, rely=1, anchor="se", x=-5, y=-5)
 
     def create_top_menu(self):
@@ -64,28 +76,88 @@ class CardRecordApp:
         btn_season = tk.Button(top_frame, text="賽季管理", command=self.manage_season)
         btn_season.pack(side=tk.LEFT, padx=5)
 
+        tk.Label(top_frame, text="模式:").pack(side=tk.LEFT, padx=5)
+        tk.Radiobutton(
+            top_frame,
+            text="天梯紀錄",
+            variable=self.mode_var,
+            value="rank_mode",
+            command=self.on_mode_change,
+        ).pack(side=tk.LEFT, padx=5)
+        tk.Radiobutton(
+            top_frame,
+            text="DC盃紀錄",
+            variable=self.mode_var,
+            value="dc_mode",
+            command=self.on_mode_change,
+        ).pack(side=tk.LEFT, padx=5)
+
+    def on_mode_change(self):
+        self.sort_descending = True
+        # 設定按鈕顯示「由舊至新」（點擊後會變成舊至新）
+        self.sort_button.config(text="由舊至新")
+        self.mode = self.mode_var.get()
+        # 如果有賽季管理視窗存在，先關閉
+        if self.season_window is not None and self.season_window.winfo_exists():
+            self.season_window.destroy()
+            self.season_window = None
+
+        # 依據模式自動更新賽季
+        if self.mode == "rank_mode":
+            # 若有天梯記錄，取得最新的賽季（假設字串排序符合最新到最舊）
+            if self.records_rank:
+                # 例如：以排序取最後一個
+                seasons = sorted(
+                    {
+                        rec.get("season", self.current_season)
+                        for rec in self.records_rank
+                    }
+                )
+                self.current_season = seasons[-1]
+            else:
+                self.current_season = get_current_season()
+            self.season_label.config(text=self.current_season)
+        else:
+            if self.records_dc:
+                seasons = sorted(
+                    {
+                        rec.get("season", self.current_season_dc)
+                        for rec in self.records_dc
+                    }
+                )
+                self.current_season_dc = seasons[-1]
+            else:
+                self.current_season_dc = get_dc_season()
+            self.season_label.config(text=self.current_season_dc)
+
+        # 重新建立新增紀錄面板與戰績列表
+        self.create_record_form(self.left_frame)
+        self.create_record_list(self.left_frame)
+
     def create_main_area(self):
         # 使用 grid 分左右兩個區域
-        main_frame = tk.Frame(self.root)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        main_frame.columnconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=0)
+        self.main_frame = tk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        self.main_frame.columnconfigure(0, weight=1)
+        self.main_frame.columnconfigure(1, weight=0)
 
         # 左側區域：輸入表單
-        left_frame = tk.Frame(main_frame)
-        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
-        self.create_record_form(left_frame)
-
+        self.left_frame = tk.Frame(self.main_frame)
+        self.left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        self.create_record_form(self.left_frame)
         # 右側區域：統計數據
-        right_frame = tk.Frame(main_frame, width=350)
+        right_frame = tk.Frame(self.main_frame, width=350)
         right_frame.grid(row=0, column=1, sticky="n", padx=(10, 0))
         right_frame.grid_propagate(False)
         self.create_statistics_panel(right_frame)
-
         # 建立戰績列表
-        self.create_record_list(left_frame)
+        self.create_record_list(self.left_frame)
 
     def create_record_form(self, parent):
+        # 每次重建前，先清空原有元件（若存在）
+        for widget in parent.winfo_children():
+            widget.destroy()
+
         form_frame = tk.LabelFrame(parent, text="新增戰績紀錄")
         form_frame.pack(fill=tk.X, padx=5, pady=5)
         tk.Label(form_frame, text="我方卡組:").grid(
@@ -168,22 +240,35 @@ class CardRecordApp:
             width=15,
         )
         self.coin_option.grid(row=3, column=1, padx=5, pady=5)
-        tk.Label(form_frame, text="段位:").grid(
-            row=4, column=0, padx=5, pady=5, sticky="e"
-        )
-        self.rank_var = tk.StringVar(value="Diamond 5")
-        rank_options = rank_list()
-        self.rank_option = ttk.Combobox(
-            form_frame,
-            textvariable=self.rank_var,
-            values=rank_options,
-            state="readonly",
-            width=15,
-        )
-        self.rank_option.grid(row=4, column=1, padx=5, pady=5)
+
+        if self.mode == "rank_mode":
+            tk.Label(form_frame, text="段位:").grid(
+                row=4, column=0, padx=5, pady=5, sticky="e"
+            )
+            self.rank_var = tk.StringVar(value="Diamond 5")
+            rank_options = rank_list()
+            self.rank_option = ttk.Combobox(
+                form_frame,
+                textvariable=self.rank_var,
+                values=rank_options,
+                state="readonly",
+                width=15,
+            )
+            self.rank_option.grid(row=4, column=1, padx=5, pady=5)
+        elif self.mode == "dc_mode":
+            tk.Label(form_frame, text="積分:").grid(
+                row=4, column=0, padx=5, pady=5, sticky="e"
+            )
+            self.points_var = tk.StringVar(value="0")
+            self.points_entry = tk.Entry(
+                form_frame, textvariable=self.points_var, width=15
+            )
+            self.points_entry.grid(row=4, column=1, padx=5, pady=5)
+
         tk.Label(form_frame, text="備註:").grid(
             row=5, column=0, padx=5, pady=5, sticky="e"
         )
+
         self.note_entry = tk.Entry(form_frame, width=50)
         self.note_entry.grid(row=5, column=1, columnspan=3, padx=5, pady=5, sticky="w")
         submit_btn = tk.Button(form_frame, text="新增紀錄", command=self.add_record)
@@ -200,8 +285,15 @@ class CardRecordApp:
         top_list_frame = tk.Frame(list_frame)
         top_list_frame.pack(fill=tk.X, padx=5, pady=5)
         tk.Label(top_list_frame, text="賽季:").pack(side=tk.LEFT)
-        self.season_label = tk.Label(top_list_frame, text=self.current_season)
+        if self.mode == "rank_mode":
+            season_text = self.current_season
+        else:
+            season_text = self.current_season_dc
+        self.season_label = tk.Label(
+            top_list_frame, text=season_text, font=("Arial", 16, "bold"), fg="red"
+        )
         self.season_label.pack(side=tk.LEFT, padx=5)
+
         tk.Label(top_list_frame, text="篩選(我方卡組):").pack(side=tk.LEFT, padx=10)
         self.filter_var.set("全部")
         filter_options = ["全部"] + self.my_decks
@@ -217,24 +309,39 @@ class CardRecordApp:
 
         self.sort_button = tk.Button(
             top_list_frame,
-            text="由新至舊" if self.sort_descending else "由舊至新",
+            text="由舊至新" if self.sort_descending else "由新至舊",
             command=self.toggle_sort_order,
         )
         self.sort_button.pack(side=tk.LEFT, padx=5)
 
-        columns = (
-            "my_deck",
-            "opp_deck",
-            "result",
-            "turn",
-            "rank",
-            "coin",
-            "forced_first",
-            "g",
-            "expanded",
-            "card_stuck",
-            "note",
-        )
+        if self.mode == "rank_mode":
+            columns = (
+                "my_deck",
+                "opp_deck",
+                "result",
+                "turn",
+                "rank",
+                "coin",
+                "forced_first",
+                "g",
+                "expanded",
+                "card_stuck",
+                "note",
+            )
+        elif self.mode == "dc_mode":
+            columns = (
+                "my_deck",
+                "opp_deck",
+                "result",
+                "turn",
+                "points",
+                "coin",
+                "forced_first",
+                "g",
+                "expanded",
+                "card_stuck",
+                "note",
+            )
 
         screen_height = self.root.winfo_screenheight()
         # 螢幕解析度較小時顯示較少的筆數
@@ -254,7 +361,10 @@ class CardRecordApp:
         self.tree.heading("opp_deck", text="對方卡組", anchor="center")
         self.tree.heading("result", text="勝負", anchor="center")
         self.tree.heading("turn", text="先後手", anchor="center")
-        self.tree.heading("rank", text="段位", anchor="center")
+        if self.mode == "rank_mode":
+            self.tree.heading("rank", text="段位", anchor="center")
+        else:
+            self.tree.heading("points", text="積分", anchor="center")
         self.tree.heading("coin", text="硬幣", anchor="center")
         self.tree.heading("forced_first", text="是否被讓先", anchor="center")
         self.tree.heading("g", text="是否中G", anchor="center")
@@ -309,11 +419,12 @@ class CardRecordApp:
         self.tree.column("note", width=note_width)
 
     def toggle_sort_order(self):
-        self.filter_records()
         self.sort_descending = not self.sort_descending
-        self.sort_button.config(text="由新至舊" if self.sort_descending else "由舊至新")
+        self.sort_button.config(text="由舊至新" if self.sort_descending else "由新至舊")
+        self.filter_records()
 
     def refresh_tree_records(self):
+        self.sort_descending = True
         # 清除 Treeview 資料，然後僅載入當前賽季的紀錄
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -392,13 +503,23 @@ class CardRecordApp:
 
     def update_my_deck_name(self, current_name=None, new_name=None):
         # 更新所有紀錄中使用舊名稱的紀錄
-        if current_name is not None and new_name is not None:
-            for rec in self.records:
-                if rec.get("my_deck") == current_name:
-                    rec["my_deck"] = new_name
-            self.my_decks = [
-                new_name if deck == current_name else deck for deck in self.my_decks
-            ]
+        # 根據模式更新對應的記錄集合
+        if self.mode == "rank_mode":
+            if current_name is not None and new_name is not None:
+                for rec in self.records_rank:
+                    if rec.get("my_deck") == current_name:
+                        rec["my_deck"] = new_name
+                self.my_decks = [
+                    new_name if deck == current_name else deck for deck in self.my_decks
+                ]
+        elif self.mode == "dc_mode":
+            if current_name is not None and new_name is not None:
+                for rec in self.records_dc:
+                    if rec.get("my_deck") == current_name:
+                        rec["my_deck"] = new_name
+                self.my_decks = [
+                    new_name if deck == current_name else deck for deck in self.my_decks
+                ]
 
         # 檢查統計下拉式選單是否為被修改的名稱
         if self.stats_deck_var.get() == current_name:
@@ -418,14 +539,25 @@ class CardRecordApp:
 
     def update_opp_deck_name(self, current_name=None, new_name=None):
         # 如果成功修改對方卡組名稱，更新所有紀錄中對方卡組名稱
-        if current_name is not None and new_name is not None:
-            for rec in self.records:
-                if rec.get("opp_deck") == current_name:
-                    rec["opp_deck"] = new_name
-            # 更新 opp_decks list
-            self.opp_decks = [
-                new_name if deck == current_name else deck for deck in self.opp_decks
-            ]
+        if self.mode == "rank_mode":
+            if current_name is not None and new_name is not None:
+                for rec in self.records_rank:
+                    if rec.get("opp_deck") == current_name:
+                        rec["opp_deck"] = new_name
+                self.opp_decks = [
+                    new_name if deck == current_name else deck
+                    for deck in self.opp_decks
+                ]
+        elif self.mode == "dc_mode":
+            if current_name is not None and new_name is not None:
+                for rec in self.records_dc:
+                    if rec.get("opp_deck") == current_name:
+                        rec["opp_deck"] = new_name
+                self.opp_decks = [
+                    new_name if deck == current_name else deck
+                    for deck in self.opp_decks
+                ]
+
         # 不論有無修改，都更新下拉選單與戰績列表
         self.sort_descending = True
         self.update_opp_deck_comboboxes()
@@ -440,36 +572,60 @@ class CardRecordApp:
         result = self.result_var.get()
         turn = self.turn_var.get()
         coin = self.coin_var.get()
-        rank = self.rank_var.get()
         forced_first = "是" if (coin == "反面" and turn == "先手") else "否"
         g = "是" if self.g_var.get() else "否"
         expanded = "是" if self.expanded_var.get() else "否"
         card_stuck = "是" if self.card_stuck_var.get() else "否"
         note = self.note_entry.get()
+
         if not my_deck or not opp_deck:
             messagebox.showerror("錯誤", "請選擇我方和對方的卡組!")
             return
+
+            # 根據模式選擇賽季
+        if self.mode == "rank_mode":
+            season = self.current_season
+        else:
+            season = self.current_season_dc
+
         record = {
             "id": self.record_id_counter,
             "my_deck": my_deck,
             "opp_deck": opp_deck,
             "result": result,
             "turn": turn,
-            "rank": rank,
             "coin": coin,
             "forced_first": forced_first,
             "g": g,
             "expanded": expanded,
             "card_stuck": card_stuck,
             "note": note,
-            "season": self.current_season,
+            "season": season,
         }
+
+        if self.mode == "rank_mode":
+            record["rank"] = self.rank_var.get()
+        elif self.mode == "dc_mode":
+            points_str = self.points_var.get()
+            try:
+                # 嘗試轉換成數字，這裡以整數為例
+                points = int(points_str)
+            except ValueError:
+                messagebox.showerror("輸入錯誤", "請輸入有效的整數作為積分！")
+                return
+            record["points"] = str(points)
+
         self.record_id_counter += 1  # 保證下次不會重複使用相同 id
-        self.records.append(record)
-        if record["season"] == self.current_season:
+        # 根據模式將記錄存入正確的集合
+        if self.mode == "rank_mode":
+            self.records_rank.append(record)
+        elif self.mode == "dc_mode":
+            self.records_dc.append(record)
+
+        if self.mode == "rank_mode":
             self.tree.insert(
                 "",
-                0,
+                tk.END,
                 iid=str(record["id"]),
                 values=(
                     record["my_deck"],
@@ -486,10 +642,32 @@ class CardRecordApp:
                     record["season"],
                 ),
             )
+        elif self.mode == "dc_mode":
+            self.tree.insert(
+                "",
+                tk.END,
+                iid=str(record["id"]),
+                values=(
+                    record["my_deck"],
+                    record["opp_deck"],
+                    record["result"],
+                    record["turn"],
+                    record["points"],
+                    record["coin"],
+                    record["forced_first"],
+                    record["g"],
+                    record["expanded"],
+                    record["card_stuck"],
+                    record["note"],
+                    record["season"],
+                ),
+            )
         self.note_entry.delete(0, tk.END)
         self.g_var.set(False)
         self.expanded_var.set(False)
         self.card_stuck_var.set(False)
+        if self.mode == "dc_rank":
+            self.points_var.set("0")
         self.update_statistics()
 
     def delete_record(self):
@@ -504,9 +682,15 @@ class CardRecordApp:
 
         record_id = int(selection[0])
 
-        for i, rec in enumerate(self.records):
+        # 根據模式選擇正確的記錄集合
+        if self.mode == "rank_mode":
+            records = self.records_rank
+        else:
+            records = self.records_dc
+
+        for i, rec in enumerate(records):
             if rec.get("id") == record_id:
-                del self.records[i]
+                del records[i]
                 break
         self.tree.delete(selection[0])
         self.update_statistics()
@@ -524,23 +708,34 @@ class CardRecordApp:
             self.record_modify_window.lift()
             self.record_modify_window.focus_force()
             return
+            # 根據模式選擇正確的記錄集合
+        if self.mode == "rank_mode":
+            records = self.records_rank
+        else:
+            records = self.records_dc
 
-        for rec in self.records:
+        for rec in records:
             if rec.get("id") == record_id:
                 self.record_modify_window = RecordModifyWindow(self, rec)
                 break
 
     def update_statistics(self):
+
+        if self.mode == "rank_mode":
+            records = self.records_rank
+            current_season = self.current_season
+        else:
+            records = self.records_dc
+            current_season = self.current_season_dc
+
         selected_deck = self.stats_deck_var.get()
         if selected_deck == "全部":
-            filtered = [
-                r for r in self.records if r.get("season") == self.current_season
-            ]
+            filtered = [r for r in records if r.get("season") == current_season]
         else:
             filtered = [
                 r
-                for r in self.records
-                if r.get("season") == self.current_season
+                for r in records
+                if r.get("season") == current_season
                 and r.get("my_deck") == selected_deck
             ]
         # 統計列表數據計算
@@ -599,9 +794,13 @@ class CardRecordApp:
     def filter_records(self):
         filter_val = self.filter_var.get()
         # 先從當前賽季的紀錄中篩選出符合條件的紀錄
-        filtered_records = [
-            r for r in self.records if r.get("season") == self.current_season
-        ]
+        if self.mode == "rank_mode":
+            records = self.records_rank
+            current_season = self.current_season
+        else:
+            records = self.records_dc
+            current_season = self.current_season_dc
+        filtered_records = [r for r in records if r.get("season") == current_season]
         if filter_val != "全部":
             filtered_records = [
                 r for r in filtered_records if r.get("my_deck") == filter_val
@@ -616,32 +815,56 @@ class CardRecordApp:
         # 插入排序後的資料
         for record in sorted_records:
             coin = record.get("coin", "正面")
-            self.tree.insert(
-                "",
-                tk.END,
-                iid=str(record["id"]),
-                values=(
-                    record.get("my_deck"),
-                    record.get("opp_deck"),
-                    record.get("result"),
-                    record.get("turn"),
-                    record.get("rank", "Diamond 5"),
-                    coin,
-                    record.get("forced_first"),
-                    record.get("g"),
-                    record.get("expanded", "否"),
-                    record.get("card_stuck", "否"),
-                    record.get("note"),
-                    record.get("season"),
-                ),
-            )
+            if self.mode == "rank_mode":
+                self.tree.insert(
+                    "",
+                    tk.END,
+                    iid=str(record["id"]),
+                    values=(
+                        record.get("my_deck"),
+                        record.get("opp_deck"),
+                        record.get("result"),
+                        record.get("turn"),
+                        record.get("rank", "Diamond 5"),
+                        coin,
+                        record.get("forced_first"),
+                        record.get("g"),
+                        record.get("expanded", "否"),
+                        record.get("card_stuck", "否"),
+                        record.get("note"),
+                    ),
+                )
+            else:
+                self.tree.insert(
+                    "",
+                    tk.END,
+                    iid=str(record["id"]),
+                    values=(
+                        record.get("my_deck"),
+                        record.get("opp_deck"),
+                        record.get("result"),
+                        record.get("turn"),
+                        record.get("points"),
+                        coin,
+                        record.get("forced_first"),
+                        record.get("g"),
+                        record.get("expanded", "否"),
+                        record.get("card_stuck", "否"),
+                        record.get("note"),
+                    ),
+                )
         self.update_statistics()
 
     # 紀錄ID重複檢查
     def ensure_unique_ids(self):
+        if self.mode == "rank_mode":
+            records = self.records_rank
+        else:
+            records = self.records_dc
+
         # 先找出所有有效的ID ，並取得最大值
         max_id = -1
-        for record in self.records:
+        for record in records:
             rec_id = record.get("id")
             if isinstance(rec_id, int):
                 max_id = max(max_id, rec_id)
@@ -651,7 +874,7 @@ class CardRecordApp:
 
         # 建立一個集合來追蹤已使用的 ID
         seen = set()
-        for record in self.records:
+        for record in records:
             rec_id = record.get("id")
             # 若沒有 id、非整數或已重複，則重新分配一個新的 ID
             if not isinstance(rec_id, int) or rec_id in seen:
@@ -662,41 +885,69 @@ class CardRecordApp:
         self.record_id_counter = max_id + 1
 
     def load_tree_records(self):
+        self.sort_descending = True
+        # 設定按鈕顯示「由舊至新」（點擊後會變成舊至新）
+        self.sort_button.config(text="由舊至新")
         # 清除現有項目，避免重複插入
         for item in self.tree.get_children():
             self.tree.delete(item)
 
         self.ensure_unique_ids()
+        # 根據目前模式選擇資料來源
+        if self.mode == "rank_mode":
+            records = self.records_rank
+            current_season = self.current_season
+
+        else:  # DC盃紀錄
+            records = self.records_dc
+            current_season = self.current_season_dc
+
         # 篩選出當前賽季的紀錄
-        filtered_records = [
-            r for r in self.records if r.get("season") == self.current_season
-        ]
+        filtered_records = [r for r in records if r.get("season") == current_season]
         # 根據ID排序
         sorted_records = sorted(
             filtered_records, key=lambda r: r["id"], reverse=self.sort_descending
         )
         # 插入資料到Treeview
         for record in sorted_records:
-            coin = record.get("coin", "正面")
-            self.tree.insert(
-                "",
-                0,
-                iid=str(record["id"]),
-                values=(
-                    record.get("my_deck"),
-                    record.get("opp_deck"),
-                    record.get("result"),
-                    record.get("turn"),
-                    record.get("rank", "Diamond 5"),
-                    coin,
-                    record.get("forced_first"),
-                    record.get("g"),
-                    record.get("expanded", "否"),
-                    record.get("card_stuck", "否"),
-                    record.get("note"),
-                    record.get("season"),
-                ),
-            )
+            if self.mode == "rank_mode":
+                self.tree.insert(
+                    "",
+                    tk.END,
+                    iid=str(record["id"]),
+                    values=(
+                        record.get("my_deck"),
+                        record.get("opp_deck"),
+                        record.get("result"),
+                        record.get("turn"),
+                        record.get("rank", "Diamond 5"),
+                        record.get("coin", "正面"),
+                        record.get("forced_first"),
+                        record.get("g"),
+                        record.get("expanded", "否"),
+                        record.get("card_stuck", "否"),
+                        record.get("note"),
+                    ),
+                )
+            else:  # DC盃紀錄
+                self.tree.insert(
+                    "",
+                    tk.END,
+                    iid=str(record["id"]),
+                    values=(
+                        record.get("my_deck"),
+                        record.get("opp_deck"),
+                        record.get("result"),
+                        record.get("turn"),
+                        record.get("points", "0"),
+                        record.get("coin", "正面"),
+                        record.get("forced_first"),
+                        record.get("g"),
+                        record.get("expanded", "否"),
+                        record.get("card_stuck", "否"),
+                        record.get("note"),
+                    ),
+                )
         self.update_statistics()
 
     def refresh_tree_records(self):
@@ -706,9 +957,15 @@ class CardRecordApp:
         self.filter_records()
 
     def show_opp_deck_pie(self):
-        season_records = [
-            r for r in self.records if r.get("season") == self.current_season
-        ]
+        if self.mode == "rank_mode":
+            season_records = [
+                r for r in self.records_rank if r.get("season") == self.current_season
+            ]
+        else:
+            season_records = [
+                r for r in self.records_dc if r.get("season") == self.current_season_dc
+            ]
+
         if not season_records:
             messagebox.showinfo("提示", "當前賽季尚無資料")
             return
@@ -721,9 +978,14 @@ class CardRecordApp:
 
     def show_my_deck_pie(self):
         # 篩選出當前賽季的所有紀錄
-        season_records = [
-            r for r in self.records if r.get("season") == self.current_season
-        ]
+        if self.mode == "rank_mode":
+            season_records = [
+                r for r in self.records_rank if r.get("season") == self.current_season
+            ]
+        else:
+            season_records = [
+                r for r in self.records_dc if r.get("season") == self.current_season_dc
+            ]
         if not season_records:
             messagebox.showinfo("提示", "當前賽季尚無資料")
             return
@@ -740,7 +1002,14 @@ class CardRecordApp:
     def on_close(self):
         data = load_data()
         if data is not None:
-            save_data(self.my_decks, self.opp_decks, self.records, self.current_season)
+            save_data(
+                self.my_decks,
+                self.opp_decks,
+                self.records_rank,
+                self.current_season,
+                self.records_dc,
+                self.current_season_dc,
+            )
         self.root.destroy()
 
         sys.exit(0)

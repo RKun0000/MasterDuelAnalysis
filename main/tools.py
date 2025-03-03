@@ -3,6 +3,8 @@ import matplotlib as mpl
 import matplotlib.font_manager as fm
 from datetime import datetime
 
+DEFAULT_DC_SEASON = "March 2025"
+
 
 def center_window(window, parent):
     window.update_idletasks()
@@ -53,6 +55,10 @@ def get_current_season():
     return f"S{season_num}"
 
 
+def get_dc_season():
+    return DEFAULT_DC_SEASON
+
+
 def compute_streaks(records):
     longest_win = 0
     longest_loss = 0
@@ -76,7 +82,7 @@ def my_deck_name():
     my_decks = [
         "刻魔蛇眼",
         "刻魔尤貝爾",
-        "白森刻魔聖徒",
+        "刻魔白森聖徒",
         "刻魔珠淚",
         "肅聲",
         "天盃龍",
@@ -95,9 +101,11 @@ def opp_deck_name():
         "60GS",
         "天盃龍",
         "反主流",
-        "大法師",
-        "60烙印",
-        "霸王幻奏" "白銀城",
+        "貼紙大法師",
+        "烙印",
+        "霸王幻奏",
+        "白銀城",
+        "旅鳥",
         "刻魔聖徒消防隊",
         "龍輝巧",
         "英雄",

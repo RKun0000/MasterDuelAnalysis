@@ -10,7 +10,10 @@ class OpponentDeckPieChart(tk.Toplevel):
     def __init__(self, app, records):
         super().__init__(app.root)
         self.app = app
-        self.title("本賽季對手卡組使用比例")
+        if app.mode == "rank_mode":
+            self.title("本賽季對手卡組使用比例 (天梯)")
+        else:
+            self.title("本賽季對手卡組使用比例 (DC盃)")
         self.geometry("720x720")
         self.records = records  # 從主程式傳入當前賽季戰績紀錄
         self.current_filter = "全部"  # 預設下拉選單選項
@@ -24,28 +27,30 @@ class OpponentDeckPieChart(tk.Toplevel):
         # 上方區域：下拉選單與統計資訊
         top_frame = tk.Frame(self)
         top_frame.pack(fill=tk.X, padx=10, pady=5)
-        tk.Label(top_frame, text="選擇段位:").pack(side=tk.LEFT)
-        self.rank_filter_var = tk.StringVar(value="全部")
-        self.rank_filter_option = ttk.Combobox(
-            top_frame,
-            textvariable=self.rank_filter_var,
-            values=[
-                "全部",
-                "競等賽",
-                "Master",
-                "Diamond",
-                "Platinum",
-                "Gold",
-                "Silver",
-            ],
-            state="readonly",
-            width=10,
-        )
-        self.rank_filter_option.pack(side=tk.LEFT, padx=5)
-        self.rank_filter_option.bind(
-            "<<ComboboxSelected>>", lambda e: self.on_filter_change()
-        )
-        # 統計資訊 Label
+
+        if self.app.mode == "rank_mode":
+            tk.Label(top_frame, text="選擇段位:").pack(side=tk.LEFT)
+            self.rank_filter_var = tk.StringVar(value="全部")
+            self.rank_filter_option = ttk.Combobox(
+                top_frame,
+                textvariable=self.rank_filter_var,
+                values=[
+                    "全部",
+                    "競等賽",
+                    "Master",
+                    "Diamond",
+                    "Platinum",
+                    "Gold",
+                    "Silver",
+                ],
+                state="readonly",
+                width=10,
+            )
+            self.rank_filter_option.pack(side=tk.LEFT, padx=5)
+            self.rank_filter_option.bind(
+                "<<ComboboxSelected>>", lambda e: self.on_filter_change()
+            )
+        # 若DC模式則不顯示下拉選單，所有紀錄皆統計
         self.stats_label = tk.Label(top_frame, text="")
         self.stats_label.pack(side=tk.LEFT, padx=10)
         # 圖形區域
@@ -185,8 +190,11 @@ class MyDeckPieChart(tk.Toplevel):
     def __init__(self, app, records):
         super().__init__(app.root)
         self.app = app
-        self.title("本賽季我方卡組使用比例")
-        self.geometry("700x700")
+        if app.mode == "rank_mode":
+            self.title("本賽季我方卡組使用比例 (天梯)")
+        else:
+            self.title("本賽季我方卡組使用比例 (DC盃)")
+        self.geometry("720x720")
         self.records = records
         load_font()
         self.create_chart()
