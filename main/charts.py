@@ -255,7 +255,7 @@ class MyDeckPieChart(tk.Toplevel):
             self.fig.canvas.draw_idle()
             return
         found = False
-        # 遍歷每個 wedge，看滑鼠是否位於其中
+        # 遍歷每個 wedge，看游標是否位於其中
         for wedge, label, size in zip(self.wedges, self.labels, self.sizes):
             contains, _ = wedge.contains(event)
             if contains:

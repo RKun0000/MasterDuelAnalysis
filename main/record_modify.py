@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from tools import center_window, rank_list
+from tools import center_window, rank_list, search_for_combobox
 
 
 class RecordModifyWindow(tk.Toplevel):
@@ -39,10 +39,11 @@ class RecordModifyWindow(tk.Toplevel):
             self,
             textvariable=self.opp_deck_var_mod,
             values=self.app.opp_decks,
-            state="readonly",
+            state="normal",
             width=15,
         )
         self.opp_deck_option_mod.grid(row=1, column=1, padx=5, pady=5)
+        search_for_combobox(self.opp_deck_option_mod, self.app.opp_decks)
 
         tk.Label(self, text="勝負:").grid(row=2, column=0, padx=5, pady=5, sticky="e")
         self.result_var_mod = tk.StringVar(value=self.record["result"])
@@ -152,6 +153,12 @@ class RecordModifyWindow(tk.Toplevel):
         btn_save.grid(row=11, column=0, columnspan=2, pady=10)
 
     def save_changes(self):
+        opp_deck_input = self.opp_deck_var_mod.get()
+        if opp_deck_input not in self.app.opp_decks:
+            messagebox.showerror("錯誤", "請選擇有效的對方卡組！")
+            self.attributes("-topmost", True)
+            self.after(100, lambda: self.attributes("-topmost", False))
+            return
         self.record["my_deck"] = self.my_deck_var_mod.get()
         self.record["opp_deck"] = self.opp_deck_var_mod.get()
         self.record["result"] = self.result_var_mod.get()

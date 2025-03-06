@@ -1,9 +1,28 @@
 import sys, os
+import tkinter as tk
 import matplotlib as mpl
 import matplotlib.font_manager as fm
 from datetime import datetime
 
 DEFAULT_DC_SEASON = "March 2025"
+
+
+def search_for_combobox(combobox, original_list):
+    def on_key_release(event):
+        # 取得目前輸入的文字
+        current_text = combobox.get()
+        # 根據輸入內容進行過濾（不區分大小寫）
+        filtered = [
+            item for item in original_list if current_text.lower() in item.lower()
+        ]
+        # 更新 Combobox 的選項，同時保留目前輸入內容
+        combobox["values"] = filtered
+        combobox.set(current_text)
+
+        combobox.icursor(tk.END)
+        # combobox.event_generate("<Down>")
+
+    combobox.bind("<KeyRelease>", on_key_release)
 
 
 def center_window(window, parent):

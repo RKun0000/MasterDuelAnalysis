@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 from deck_management import DeckManagementWindow, SeasonManagementWindow
 from record_modify import RecordModifyWindow
 from data_manager import load_data, save_data
-from tools import get_current_season, get_dc_season
+from tools import get_current_season, get_dc_season, search_for_combobox
 from charts import OpponentDeckPieChart, MyDeckPieChart
 from tools import rank_list, compute_streaks
 import sys
@@ -180,10 +180,12 @@ class CardRecordApp:
             form_frame,
             textvariable=self.opp_deck_var_form,
             values=self.opp_decks,
-            state="readonly",
+            state="normal",
             width=15,
         )
         self.opp_deck_option.grid(row=0, column=3, padx=5, pady=5)
+        search_for_combobox(self.opp_deck_option, self.opp_decks)
+
         tk.Label(form_frame, text="勝負:").grid(
             row=1, column=0, padx=5, pady=5, sticky="e"
         )
@@ -465,7 +467,7 @@ class CardRecordApp:
         self.coin_tails_label.pack(padx=5, pady=5)
         self.g_win_label = tk.Label(stats_frame, text="先攻中G勝率: 0%")
         self.g_win_label.pack(padx=5, pady=5)
-        self.expanded_win_label = tk.Label(stats_frame, text="展開中G以外手坑勝率: 0%")
+        self.expanded_win_label = tk.Label(stats_frame, text="先攻中G以外手坑勝率: 0%")
         self.expanded_win_label.pack(padx=5, pady=5)
         self.card_stuck_rate_label = tk.Label(stats_frame, text="卡手率: 0%")
         self.card_stuck_rate_label.pack(padx=5, pady=5)
@@ -567,6 +569,11 @@ class CardRecordApp:
         self.opp_deck_option["values"] = self.opp_decks
 
     def add_record(self):
+        opp_deck_input = self.opp_deck_var_form.get()
+        if opp_deck_input not in self.opp_decks:
+            messagebox.showerror("錯誤", "請選擇有效的對方卡組！")
+            return
+
         my_deck = self.my_deck_var_form.get()
         opp_deck = self.opp_deck_var_form.get()
         result = self.result_var.get()
@@ -625,7 +632,7 @@ class CardRecordApp:
         if self.mode == "rank_mode":
             self.tree.insert(
                 "",
-                tk.END,
+                0,
                 iid=str(record["id"]),
                 values=(
                     record["my_deck"],
@@ -645,7 +652,7 @@ class CardRecordApp:
         elif self.mode == "dc_mode":
             self.tree.insert(
                 "",
-                tk.END,
+                0,
                 iid=str(record["id"]),
                 values=(
                     record["my_deck"],
@@ -760,7 +767,11 @@ class CardRecordApp:
         g_wins = len([r for r in g_recs if r.get("result") == "勝"])
         g_win_rate = (g_wins / len(g_recs) * 100) if g_recs else 0
 
-        expanded_recs = [r for r in filtered if r.get("expanded", "否") == "是"]
+        expanded_recs = [
+            r
+            for r in filtered
+            if r.get("expanded", "否") == "是" and r.get("turn") == "先手"
+        ]
         expanded_wins = len([r for r in expanded_recs if r.get("result") == "勝"])
         expanded_win_rate = (
             (expanded_wins / len(expanded_recs) * 100) if expanded_recs else 0
@@ -778,7 +789,7 @@ class CardRecordApp:
         self.coin_tails_label.config(text=f"反面率: {coin_tails_rate:.1f}%")
         self.g_win_label.config(text=f"先攻中G勝率: {g_win_rate:.1f}%")
         self.expanded_win_label.config(
-            text=f"展開中G以外手坑勝率: {expanded_win_rate:.1f}%"
+            text=f"先攻中G以外手坑勝率: {expanded_win_rate:.1f}%"
         )
         self.card_stuck_rate_label.config(text=f"卡手率: {card_stuck_rate:.1f}%")
 
