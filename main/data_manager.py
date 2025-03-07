@@ -38,6 +38,14 @@ def load_data(filename="card_data.json"):
                 current_season = data.get("current_season", get_current_season())
                 records_dc = []
                 current_season_dc = get_dc_season()
+
+            for rec in records_rank:
+                if "hand_traps" not in rec:
+                    rec["hand_traps"] = []
+            for rec in records_dc:
+                if "hand_traps" not in rec:
+                    rec["hand_traps"] = []
+
             return (
                 my_decks,
                 opp_decks,

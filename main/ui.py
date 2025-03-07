@@ -3,9 +3,16 @@ from tkinter import ttk, messagebox
 from deck_management import DeckManagementWindow, SeasonManagementWindow
 from record_modify import RecordModifyWindow
 from data_manager import load_data, save_data
-from tools import get_current_season, get_dc_season, search_for_combobox
+from tools import (
+    get_current_season,
+    get_dc_season,
+    search_for_combobox,
+    rank_list,
+    hand_trap_list,
+    compute_streaks,
+    exclusive,
+)
 from charts import OpponentDeckPieChart, MyDeckPieChart
-from tools import rank_list, compute_streaks
 import sys
 
 
@@ -52,7 +59,6 @@ class CardRecordApp:
         else:
             # 若讀取失敗，不覆蓋原檔案
             messagebox.showwarning("資料載入失敗")
-
         self.create_top_menu()
         self.create_main_area()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -160,112 +166,156 @@ class CardRecordApp:
 
         form_frame = tk.LabelFrame(parent, text="新增戰績紀錄")
         form_frame.pack(fill=tk.X, padx=5, pady=5)
-        tk.Label(form_frame, text="我方卡組:").grid(
-            row=0, column=0, padx=5, pady=5, sticky="e"
-        )
+        deck_frame = tk.Frame(form_frame)
+        deck_frame.grid(row=0, column=0, columnspan=4, padx=10, pady=5)
+
+        tk.Label(deck_frame, text="我方卡組：").pack(side=tk.LEFT, padx=2)
         self.my_deck_var_form = tk.StringVar()
         self.my_deck_option = ttk.Combobox(
-            form_frame,
+            deck_frame,
             textvariable=self.my_deck_var_form,
             values=self.my_decks,
             state="readonly",
             width=15,
         )
-        self.my_deck_option.grid(row=0, column=1, padx=5, pady=5)
-        tk.Label(form_frame, text="對方卡組:").grid(
-            row=0, column=2, padx=5, pady=5, sticky="e"
-        )
+        self.my_deck_option.pack(side=tk.LEFT, padx=(2, 5))
+
+        tk.Label(deck_frame, text="對方卡組：").pack(side=tk.LEFT, padx=(30, 2))
         self.opp_deck_var_form = tk.StringVar()
         self.opp_deck_option = ttk.Combobox(
-            form_frame,
+            deck_frame,
             textvariable=self.opp_deck_var_form,
             values=self.opp_decks,
             state="normal",
             width=15,
         )
-        self.opp_deck_option.grid(row=0, column=3, padx=5, pady=5)
+        self.opp_deck_option.pack(side=tk.LEFT, padx=(2, 5))
         search_for_combobox(self.opp_deck_option, self.opp_decks)
 
-        tk.Label(form_frame, text="勝負:").grid(
-            row=1, column=0, padx=5, pady=5, sticky="e"
-        )
-        self.result_var = tk.StringVar(value="勝")
-        self.result_option = ttk.Combobox(
-            form_frame,
-            textvariable=self.result_var,
-            values=["勝", "敗"],
-            state="readonly",
-            width=15,
-        )
-        self.result_option.grid(row=1, column=1, padx=5, pady=5)
-        tk.Label(form_frame, text="先後手:").grid(
-            row=1, column=2, padx=5, pady=5, sticky="e"
-        )
-        self.turn_var = tk.StringVar(value="先手")
-        self.turn_option = ttk.Combobox(
-            form_frame,
-            textvariable=self.turn_var,
-            values=["先手", "後手"],
-            state="readonly",
-            width=15,
-        )
-        self.turn_option.grid(row=1, column=3, padx=5, pady=5)
-        tk.Label(form_frame, text="是否中G:").grid(
-            row=2, column=0, padx=5, pady=5, sticky="e"
-        )
-        self.g_var = tk.BooleanVar()
-        self.g_cb = tk.Checkbutton(form_frame, variable=self.g_var)
-        self.g_cb.grid(row=2, column=1, padx=5, pady=5, sticky="w")
-        tk.Label(form_frame, text="展開是否中G以外手坑:").grid(
-            row=2, column=2, padx=5, pady=5, sticky="e"
-        )
-        self.expanded_var = tk.BooleanVar()
-        self.expanded_cb = tk.Checkbutton(form_frame, variable=self.expanded_var)
-        self.expanded_cb.grid(row=2, column=3, padx=5, pady=5, sticky="w")
-
-        tk.Label(form_frame, text="是否卡手:").grid(
-            row=2, column=4, padx=5, pady=5, sticky="e"
-        )
-        self.card_stuck_var = tk.BooleanVar()
-        self.card_stuck_cb = tk.Checkbutton(form_frame, variable=self.card_stuck_var)
-        self.card_stuck_cb.grid(row=2, column=5, padx=5, pady=5, sticky="w")
-
-        tk.Label(form_frame, text="硬幣:").grid(
-            row=3, column=0, padx=5, pady=5, sticky="e"
-        )
-        self.coin_var = tk.StringVar(value="正面")
-        self.coin_option = ttk.Combobox(
-            form_frame,
-            textvariable=self.coin_var,
-            values=["正面", "反面"],
-            state="readonly",
-            width=15,
-        )
-        self.coin_option.grid(row=3, column=1, padx=5, pady=5)
-
         if self.mode == "rank_mode":
-            tk.Label(form_frame, text="段位:").grid(
-                row=4, column=0, padx=5, pady=5, sticky="e"
-            )
+            tk.Label(deck_frame, text="段位：").pack(side=tk.LEFT, padx=(30, 2))
             self.rank_var = tk.StringVar(value="Diamond 5")
             rank_options = rank_list()
             self.rank_option = ttk.Combobox(
-                form_frame,
+                deck_frame,
                 textvariable=self.rank_var,
                 values=rank_options,
                 state="readonly",
                 width=15,
             )
-            self.rank_option.grid(row=4, column=1, padx=5, pady=5)
+            self.rank_option.pack(side=tk.LEFT, padx=(5, 2))
         elif self.mode == "dc_mode":
-            tk.Label(form_frame, text="積分:").grid(
-                row=4, column=0, padx=5, pady=5, sticky="e"
-            )
+            tk.Label(deck_frame, text="積分:").pack(side=tk.LEFT, padx=(30, 2))
             self.points_var = tk.StringVar(value="0")
             self.points_entry = tk.Entry(
-                form_frame, textvariable=self.points_var, width=15
+                deck_frame, textvariable=self.points_var, width=15
             )
-            self.points_entry.grid(row=4, column=1, padx=5, pady=5)
+            self.points_entry.pack(side=tk.LEFT, padx=(5, 2))
+
+        options_frame = tk.Frame(form_frame)
+        options_frame.grid(row=1, column=0, columnspan=4, padx=5, pady=5, sticky="w")
+
+        tk.Label(options_frame, text="勝負：").grid(
+            row=0, column=0, padx=5, pady=2, sticky="e"
+        )
+        self.result_win_var = tk.BooleanVar(value=True)
+        self.result_loss_var = tk.BooleanVar(value=False)
+
+        self.result_win_cb = tk.Checkbutton(
+            options_frame,
+            text="勝",
+            variable=self.result_win_var,
+            command=lambda: exclusive(self.result_win_var, self.result_loss_var),
+        )
+
+        self.result_loss_cb = tk.Checkbutton(
+            options_frame,
+            text="敗",
+            variable=self.result_loss_var,
+            command=lambda: exclusive(self.result_loss_var, self.result_win_var),
+        )
+        self.result_win_cb.grid(row=0, column=1, padx=0, pady=2, sticky="w")
+        self.result_loss_cb.grid(row=0, column=2, padx=0, pady=2, sticky="w")
+
+        tk.Label(options_frame, text="硬幣：").grid(
+            row=0, column=3, padx=(45, 0), pady=2, sticky="e"
+        )
+        self.coin_heads_var = tk.BooleanVar(value=True)
+        self.coin_tails_var = tk.BooleanVar(value=False)
+
+        self.coin_heads_cb = tk.Checkbutton(
+            options_frame,
+            text="正面",
+            variable=self.coin_heads_var,
+            command=lambda: exclusive(self.coin_heads_var, self.coin_tails_var),
+        )
+        self.coin_tails_cb = tk.Checkbutton(
+            options_frame,
+            text="反面",
+            variable=self.coin_tails_var,
+            command=lambda: exclusive(self.coin_tails_var, self.coin_heads_var),
+        )
+        self.coin_heads_cb.grid(row=0, column=4, padx=0, pady=2, sticky="w")
+        self.coin_tails_cb.grid(row=0, column=5, padx=0, pady=2, sticky="w")
+
+        tk.Label(options_frame, text="先後手：").grid(
+            row=0, column=6, padx=0, pady=2, sticky="e"
+        )
+        self.turn_first_var = tk.BooleanVar(value=True)
+        self.turn_second_var = tk.BooleanVar(value=False)
+
+        self.first_cb_mod = tk.Checkbutton(
+            options_frame,
+            text="先手",
+            variable=self.turn_first_var,
+            command=lambda: exclusive(self.turn_first_var, self.turn_second_var),
+        )
+        self.second_cb_mod = tk.Checkbutton(
+            options_frame,
+            text="後手",
+            variable=self.turn_second_var,
+            command=lambda: exclusive(self.turn_second_var, self.turn_first_var),
+        )
+        self.first_cb_mod.grid(row=0, column=7, padx=0, pady=2, sticky="w")
+        self.second_cb_mod.grid(row=0, column=8, padx=0, pady=2, sticky="w")
+
+        tk.Label(options_frame, text="對方G是否通過：").grid(
+            row=1, column=0, padx=0, pady=2, sticky="w"
+        )
+        self.g_var = tk.BooleanVar()
+        self.g_cb = tk.Checkbutton(options_frame, variable=self.g_var)
+        self.g_cb.grid(row=1, column=1, padx=5, pady=2, sticky="w")
+
+        tk.Label(options_frame, text="是否卡手：").grid(
+            row=1, column=3, padx=(20, 0), pady=2, sticky="e"
+        )
+        self.card_stuck_var = tk.BooleanVar()
+        self.card_stuck_cb = tk.Checkbutton(options_frame, variable=self.card_stuck_var)
+        self.card_stuck_cb.grid(row=1, column=4, padx=0, pady=2, sticky="w")
+
+        tk.Label(options_frame, text="我方有無手坑：").grid(
+            row=1, column=6, padx=(10, 0), pady=2, sticky="e"
+        )
+        self.my_hand_traps_var = tk.BooleanVar()
+        self.my_hand_traps_cb = tk.Checkbutton(
+            options_frame, variable=self.my_hand_traps_var
+        )
+        self.my_hand_traps_cb.grid(row=1, column=7, padx=0, pady=2, sticky="w")
+
+        tk.Label(form_frame, text="中G以外手坑:").grid(
+            row=3, column=0, padx=5, pady=5, sticky="e"
+        )
+        # 預設所有手坑皆記錄，例如預設值為一個列表
+        hand_trap_frame = tk.Frame(form_frame)
+        hand_trap_frame.grid(row=3, column=1, columnspan=4, padx=5, pady=5, sticky="w")
+
+        self.hand_traps = hand_trap_list()
+        self.hand_traps_vars = {}
+        for trap in self.hand_traps:
+            var = tk.BooleanVar(value=False)  # 可依需求預設為 True 或 False
+            cb = tk.Checkbutton(hand_trap_frame, text=trap, variable=var)
+            cb.pack(side=tk.LEFT, padx=3)
+            self.hand_traps_vars[trap] = var
 
         tk.Label(form_frame, text="備註:").grid(
             row=5, column=0, padx=5, pady=5, sticky="e"
@@ -328,6 +378,7 @@ class CardRecordApp:
                 "g",
                 "expanded",
                 "card_stuck",
+                "my_hand_traps",
                 "note",
             )
         elif self.mode == "dc_mode":
@@ -342,6 +393,7 @@ class CardRecordApp:
                 "g",
                 "expanded",
                 "card_stuck",
+                "my_hand_traps",
                 "note",
             )
 
@@ -368,10 +420,11 @@ class CardRecordApp:
         else:
             self.tree.heading("points", text="積分", anchor="center")
         self.tree.heading("coin", text="硬幣", anchor="center")
-        self.tree.heading("forced_first", text="是否被讓先", anchor="center")
-        self.tree.heading("g", text="是否中G", anchor="center")
-        self.tree.heading("expanded", text="展開是否中G以外手坑", anchor="center")
+        self.tree.heading("forced_first", text="被讓先", anchor="center")
+        self.tree.heading("g", text="對方G通過", anchor="center")
+        self.tree.heading("expanded", text="中G以外手坑", anchor="center")
         self.tree.heading("card_stuck", text="是否卡手", anchor="center")
+        self.tree.heading("my_hand_traps", text="我方手坑", anchor="center")
         self.tree.heading("note", text="備註", anchor="center")
 
         for col in columns:
@@ -411,13 +464,40 @@ class CardRecordApp:
         list_frame.bind("<Configure>", self.on_list_frame_resize)
         # 載入資料到 Treeview
         self.load_tree_records()
+        self.refresh_tree_records()
 
     def on_list_frame_resize(self, event):
-        # 獲取新的 Frame 寬度
-        new_width = event.width
-        # 動態調整列表欄位寬度
-        fixed_width = 11 * 90
-        note_width = max(new_width - fixed_width, 100)
+        total_width = event.width
+        # 取得目前的欄位列表（不包含未顯示的隱藏欄位）
+        cols = self.tree["columns"]
+
+        small_widths = {
+            "result": 50,
+            "turn": 50,
+            "coin": 50,
+            "g": 70,
+            "forced_first": 50,
+            "expanded": 80,
+            "card_stuck": 60,
+            "my_hand_traps": 60,
+        }
+        # 為其他欄位設定預設最小寬度（note 除外）
+        default_width = 90
+
+        # 計算除了 note 欄位外所有欄位的總寬度
+        total_fixed = 0
+        for col in cols:
+            if col == "note":
+                continue
+            if col in small_widths:
+                w = small_widths[col]
+            else:
+                w = default_width
+            total_fixed += w
+            self.tree.column(col, width=w)
+
+        # note 欄位獲得剩餘寬度（至少100）
+        note_width = max(total_width - total_fixed, 100)
         self.tree.column("note", width=note_width)
 
     def toggle_sort_order(self):
@@ -434,7 +514,7 @@ class CardRecordApp:
         self.filter_records()
 
     def create_statistics_panel(self, parent):
-        stats_frame = tk.LabelFrame(parent, text="統計數據", width=220, height=470)
+        stats_frame = tk.LabelFrame(parent, text="統計數據", width=220, height=490)
         stats_frame.pack(fill=tk.BOTH, expand=False, padx=5, pady=5)
         stats_frame.pack_propagate(False)
         tk.Label(stats_frame, text="選擇卡組:").pack(padx=5, pady=5)
@@ -469,6 +549,8 @@ class CardRecordApp:
         self.g_win_label.pack(padx=5, pady=5)
         self.expanded_win_label = tk.Label(stats_frame, text="先攻中G以外手坑勝率: 0%")
         self.expanded_win_label.pack(padx=5, pady=5)
+        self.second_traps_win_label = tk.Label(stats_frame, text="後攻有手坑勝率: 0%")
+        self.second_traps_win_label.pack(padx=5, pady=5)
         self.card_stuck_rate_label = tk.Label(stats_frame, text="卡手率: 0%")
         self.card_stuck_rate_label.pack(padx=5, pady=5)
         # 最長連勝與連敗顯示
@@ -576,14 +658,20 @@ class CardRecordApp:
 
         my_deck = self.my_deck_var_form.get()
         opp_deck = self.opp_deck_var_form.get()
-        result = self.result_var.get()
-        turn = self.turn_var.get()
-        coin = self.coin_var.get()
+        result = "勝" if self.result_win_var.get() else "敗"
+        turn = "先手" if self.turn_first_var.get() else "後手"
+        coin = "正面" if self.coin_heads_var.get() else "反面"
         forced_first = "是" if (coin == "反面" and turn == "先手") else "否"
         g = "是" if self.g_var.get() else "否"
-        expanded = "是" if self.expanded_var.get() else "否"
         card_stuck = "是" if self.card_stuck_var.get() else "否"
+        my_hand_traps = "有" if self.my_hand_traps_var.get() else "無"
         note = self.note_entry.get()
+
+        # 取得手坑勾選結果：僅記錄被勾選的手坑
+        selected_hand_traps = [
+            trap for trap, var in self.hand_traps_vars.items() if var.get()
+        ]
+        expanded = "是" if selected_hand_traps else "否"
 
         if not my_deck or not opp_deck:
             messagebox.showerror("錯誤", "請選擇我方和對方的卡組!")
@@ -606,8 +694,10 @@ class CardRecordApp:
             "g": g,
             "expanded": expanded,
             "card_stuck": card_stuck,
+            "my_hand_traps": my_hand_traps,
             "note": note,
             "season": season,
+            "hand_traps": selected_hand_traps,
         }
 
         if self.mode == "rank_mode":
@@ -629,6 +719,10 @@ class CardRecordApp:
         elif self.mode == "dc_mode":
             self.records_dc.append(record)
 
+        note_display = note
+        if selected_hand_traps:
+            note_display += " 中" + ",".join(selected_hand_traps)
+
         if self.mode == "rank_mode":
             self.tree.insert(
                 "",
@@ -645,7 +739,8 @@ class CardRecordApp:
                     record["g"],
                     record["expanded"],
                     record["card_stuck"],
-                    record["note"],
+                    record["my_hand_traps"],
+                    note_display,
                     record["season"],
                 ),
             )
@@ -665,14 +760,18 @@ class CardRecordApp:
                     record["g"],
                     record["expanded"],
                     record["card_stuck"],
-                    record["note"],
+                    record["my_hand_traps"],
+                    note_display,
                     record["season"],
                 ),
             )
         self.note_entry.delete(0, tk.END)
         self.g_var.set(False)
-        self.expanded_var.set(False)
         self.card_stuck_var.set(False)
+        self.my_hand_traps_var.set(False)
+        for var in self.hand_traps_vars.values():
+            var.set(False)
+
         if self.mode == "dc_rank":
             self.points_var.set("0")
         self.update_statistics()
@@ -776,6 +875,15 @@ class CardRecordApp:
         expanded_win_rate = (
             (expanded_wins / len(expanded_recs) * 100) if expanded_recs else 0
         )
+        second_trap = [
+            r
+            for r in filtered
+            if r.get("turn") == "後手" and r.get("my_hand_traps") == "有"
+        ]
+        second_traps_win = len([r for r in second_trap if r.get("result") == "勝"])
+        second_traps_rate = (
+            (second_traps_win / len(second_trap) * 100) if second_trap else 0
+        )
 
         card_stuck = len([r for r in filtered if r.get("card_stuck", "否") == "是"])
         card_stuck_rate = (card_stuck / total * 100) if total > 0 else 0
@@ -790,6 +898,9 @@ class CardRecordApp:
         self.g_win_label.config(text=f"先攻中G勝率: {g_win_rate:.1f}%")
         self.expanded_win_label.config(
             text=f"先攻中G以外手坑勝率: {expanded_win_rate:.1f}%"
+        )
+        self.second_traps_win_label.config(
+            text=f"後攻有手坑勝率:{second_traps_rate:.1f}%"
         )
         self.card_stuck_rate_label.config(text=f"卡手率: {card_stuck_rate:.1f}%")
 
@@ -825,7 +936,10 @@ class CardRecordApp:
             self.tree.delete(item)
         # 插入排序後的資料
         for record in sorted_records:
-            coin = record.get("coin", "正面")
+            note_display = record.get("note", "")
+            if "hand_traps" in record and record["hand_traps"]:
+                note_display += " 中" + ", ".join(record["hand_traps"])
+
             if self.mode == "rank_mode":
                 self.tree.insert(
                     "",
@@ -837,12 +951,13 @@ class CardRecordApp:
                         record.get("result"),
                         record.get("turn"),
                         record.get("rank", "Diamond 5"),
-                        coin,
+                        record.get("coin", "正面"),
                         record.get("forced_first"),
                         record.get("g"),
                         record.get("expanded", "否"),
                         record.get("card_stuck", "否"),
-                        record.get("note"),
+                        record.get("my_hand_traps", "無"),
+                        note_display,
                     ),
                 )
             else:
@@ -856,23 +971,23 @@ class CardRecordApp:
                         record.get("result"),
                         record.get("turn"),
                         record.get("points"),
-                        coin,
+                        record.get("coin", "正面"),
                         record.get("forced_first"),
                         record.get("g"),
                         record.get("expanded", "否"),
                         record.get("card_stuck", "否"),
-                        record.get("note"),
+                        record.get("my_hand_traps", "無"),
+                        note_display,
                     ),
                 )
         self.update_statistics()
 
-    # 紀錄ID重複檢查
+    # record_id重複檢查
     def ensure_unique_ids(self):
         if self.mode == "rank_mode":
             records = self.records_rank
         else:
             records = self.records_dc
-
         # 先找出所有有效的ID ，並取得最大值
         max_id = -1
         for record in records:
@@ -937,6 +1052,7 @@ class CardRecordApp:
                         record.get("g"),
                         record.get("expanded", "否"),
                         record.get("card_stuck", "否"),
+                        record.get("my_hand_traps", "無"),
                         record.get("note"),
                     ),
                 )
@@ -956,6 +1072,7 @@ class CardRecordApp:
                         record.get("g"),
                         record.get("expanded", "否"),
                         record.get("card_stuck", "否"),
+                        record.get("my_hand_traps", "無"),
                         record.get("note"),
                     ),
                 )

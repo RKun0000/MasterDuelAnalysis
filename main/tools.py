@@ -96,6 +96,32 @@ def compute_streaks(records):
     return longest_win, longest_loss
 
 
+def exclusive(active_var, other_var):
+    """若 active_var 被勾選，則取消 other_var；若取消勾選則強制保持 active_var True"""
+    if active_var.get():
+        other_var.set(False)
+    else:
+        active_var.set(True)
+
+
+# 手坑清單
+def hand_trap_list():
+    hand_trap_options = [
+        "隕石",
+        "鎖鳥",
+        "泡影",
+        "灰流",
+        "效分",
+        "次吸",
+        "屋敷",
+        "DD烏鴉",
+        "幽鬼兔",
+        "深淵獸",
+        "應戰G",
+    ]
+    return hand_trap_options
+
+
 # 初始卡組名稱清單
 def my_deck_name():
     my_decks = [

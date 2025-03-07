@@ -1,6 +1,7 @@
 import tkinter as tk
 from ui import CardRecordApp
 
+
 def get_initial_geometry(root):
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
@@ -18,7 +19,7 @@ if __name__ == "__main__":
     if init_geom:
         root.geometry(init_geom)
     else:
-        root.geometry("1300x800")
+        root.geometry("1250x800")
     root.resizable(True, True)
 
     app = CardRecordApp(root)
