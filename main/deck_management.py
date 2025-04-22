@@ -8,6 +8,7 @@ class DeckManagementWindow(tk.Toplevel):
     def __init__(self, app, deck_list, deck_type, update_callback):
         super().__init__(app.root)
         self.app = app
+        self.parent = app.root
         self.withdraw()
         self.title(f"{deck_type}管理")
         self.deck_list = deck_list
@@ -17,7 +18,12 @@ class DeckManagementWindow(tk.Toplevel):
         self.update_idletasks()
         self.create_widgets()
         center_window(self, app.root)
+        self.transient(self.parent)
         self.deiconify()
+        self.lift(self.parent)
+        self.parent.attributes("-disabled", True)
+
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def create_widgets(self):
         self.listbox = tk.Listbox(self)
@@ -36,7 +42,7 @@ class DeckManagementWindow(tk.Toplevel):
         tk.Button(btn_frame, text="刪除", command=self.delete_deck).pack(
             side=tk.LEFT, padx=5
         )
-        tk.Button(btn_frame, text="關閉", command=self.destroy).pack(
+        tk.Button(btn_frame, text="關閉", command=self.on_close).pack(
             side=tk.LEFT, padx=5
         )
 
@@ -71,7 +77,6 @@ class DeckManagementWindow(tk.Toplevel):
         if not new_name:
             return
         if new_name in self.deck_list:
-            messagebox.showinfo("提示", "該卡組已存在!")
             self.lift()
             self.focus_force()
             return
@@ -134,18 +139,26 @@ class DeckManagementWindow(tk.Toplevel):
         self.lift()
         self.focus_force()
 
+    def on_close(self):
+        self.parent.attributes("-disabled", False)
+        self.destroy()
+
 
 class SeasonManagementWindow(tk.Toplevel):
     def __init__(self, app):
         super().__init__(app.root)
-        self.withdraw()
         self.app = app
+        self.parent = app.root
+        self.withdraw()
         self.title("賽季管理")
         self.geometry("300x300")
         self.create_widgets()
         self.update_idletasks()
         center_window(self, app.root)
+        self.transient(self.parent)
         self.deiconify()
+        self.lift(self.parent)
+        self.parent.attributes("-disabled", True)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def get_current_data(self):
@@ -197,7 +210,7 @@ class SeasonManagementWindow(tk.Toplevel):
         tk.Button(btn_frame2, text="刪除賽季資料", command=self.delete_season).pack(
             side=tk.LEFT, padx=5
         )
-        tk.Button(btn_frame2, text="關閉", command=self.destroy).pack(
+        tk.Button(btn_frame2, text="關閉", command=self.on_close).pack(
             side=tk.LEFT, padx=5
         )
 
@@ -332,5 +345,5 @@ class SeasonManagementWindow(tk.Toplevel):
 
     # 關閉視窗時清除
     def on_close(self):
+        self.parent.attributes("-disabled", False)
         self.destroy()
-        self.app.season_window = None

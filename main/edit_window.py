@@ -4,21 +4,23 @@ from tools import center_window
 
 
 class EditNameWindow(tk.Toplevel):
-    def __init__(self, parent, title, current_name=""):
-        super().__init__(parent)
+    def __init__(self, app, title, current_name=""):
+        super().__init__(app)
+        self.app = app
         self.withdraw()  # 先隱藏視窗
         self.title(title)
         self.geometry("300x100")
         self.resizable(False, False)
-        self.new_name = None  # 修改後的新名稱
-        self.transient(parent)
+        self.new_name = None
+        self.transient(app)
+        app.attributes("-disabled", True)
         self.create_widgets(current_name)
-        # 呼叫 update_idletasks() 以確保尺寸資訊已更新
+
         self.update_idletasks()
-        center_window(self, parent)  # 置中視窗
-        self.deiconify()  # 顯示視窗
-        self.grab_set()  # 設置模態
-        self.wait_window()
+        center_window(self, app)  # 置中視窗
+        self.deiconify()
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.wait_window(self)
 
     def create_widgets(self, current_name):
         tk.Label(self, text="請輸入新的名稱：").pack(padx=10, pady=5)
@@ -28,7 +30,7 @@ class EditNameWindow(tk.Toplevel):
         btn_frame = tk.Frame(self)
         btn_frame.pack(pady=5)
         tk.Button(btn_frame, text="確定", command=self.on_ok).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="取消", command=self.destroy).pack(
+        tk.Button(btn_frame, text="取消", command=self.on_close).pack(
             side=tk.LEFT, padx=5
         )
 
@@ -38,4 +40,8 @@ class EditNameWindow(tk.Toplevel):
             messagebox.showwarning("提示", "名稱不能為空")
         else:
             self.new_name = name
-            self.destroy()
+            self.on_close()
+
+    def on_close(self):
+        self.app.attributes("-disabled", False)
+        self.destroy()

@@ -3,24 +3,30 @@ from tkinter import ttk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from tools import load_font
-from tools import center_window
+from tools import center_window, display_width, pad_to_width
 
 
 class OpponentDeckPieChart(tk.Toplevel):
     def __init__(self, app, records):
         super().__init__(app.root)
         self.app = app
+        self.parent = app.root
+        self.withdraw()
         if app.mode == "rank_mode":
             self.title("本賽季對手卡組使用比例 (天梯)")
         else:
             self.title("本賽季對手卡組使用比例 (DC盃)")
-        self.geometry("720x720")
+        self.geometry("700x550")
         self.records = records  # 從主程式傳入當前賽季戰績紀錄
         self.current_filter = "全部"  # 預設下拉選單選項
         load_font()
         self.create_widgets()
         self.update_chart()
         center_window(self, app.root)
+        self.transient(self.parent)
+        self.deiconify()
+        self.lift(self.parent)
+        self.parent.attributes("-disabled", True)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def create_widgets(self):
@@ -97,7 +103,7 @@ class OpponentDeckPieChart(tk.Toplevel):
             else:
                 items.append(item)
         # 設定主要項目的數量上限，剩餘的卡組合併為"其他"
-        THRESHOLD = 8
+        THRESHOLD = 12
         if len(items) > THRESHOLD:
             main_items = items[:THRESHOLD]
             others_items = items[THRESHOLD:]
@@ -150,7 +156,6 @@ class OpponentDeckPieChart(tk.Toplevel):
         )
         self.ann.set_visible(False)
         self.fig.canvas.mpl_connect("motion_notify_event", self.on_move)
-        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.canvas_frame)
         self.canvas.draw()
@@ -168,7 +173,32 @@ class OpponentDeckPieChart(tk.Toplevel):
             if contains:
                 # 如果這個 wedge 是 "其他"，顯示包含的卡組名稱與場次
                 if label == "其他" and self.others_details:
-                    self.ann.set_text(f"其他:\n{self.others_details}")
+                    data = [line.strip() for line in self.others_details.splitlines()]
+
+                    # 2. 依每 3 筆一組分列（可依需求修改分組數）
+                    rows = [data[i : i + 3] for i in range(0, len(data), 3)]
+                    ncols = 3
+
+                    # 3. 計算每一欄的最大顯示寬度
+                    col_widths = [0] * ncols
+                    for row in rows:
+                        for i, item in enumerate(row):
+                            col_widths[i] = max(col_widths[i], display_width(item))
+
+                    # 如需額外間隔，可在每個欄位寬度上加上額外的寬度（例如加 5）
+                    col_widths = [w + 5 for w in col_widths]
+
+                    # 4. 使用 pad_to_width 依照各欄最大寬度對齊每一列
+                    formatted_rows = []
+                    for row in rows:
+                        formatted_items = []
+                        for i, item in enumerate(row):
+                            formatted_items.append(pad_to_width(item, col_widths[i]))
+                        formatted_rows.append("".join(formatted_items).rstrip())
+
+                    # 5. 組合最終結果並加上標題 "其他:"
+                    format_text = "其他:\n" + "\n".join(formatted_rows)
+                    self.ann.set_text(format_text)
                 else:
                     self.ann.set_text(f"{label}: {size} 場")
                 self.ann.xy = (event.xdata, event.ydata)
@@ -181,24 +211,29 @@ class OpponentDeckPieChart(tk.Toplevel):
 
     # 關閉視窗時清除
     def on_close(self):
+        self.parent.attributes("-disabled", False)
         self.destroy()
-        if hasattr(self, "app") and hasattr(self.app, "pie_chart_window"):
-            self.app.pie_chart_window = None
 
 
 class MyDeckPieChart(tk.Toplevel):
     def __init__(self, app, records):
         super().__init__(app.root)
         self.app = app
+        self.parent = app.root
+        self.withdraw()
         if app.mode == "rank_mode":
             self.title("本賽季我方卡組使用比例 (天梯)")
         else:
             self.title("本賽季我方卡組使用比例 (DC盃)")
-        self.geometry("720x720")
+        self.geometry("700x550")
         self.records = records
         load_font()
         self.create_chart()
         center_window(self, app.root)
+        self.transient(self.parent)
+        self.deiconify()
+        self.lift(self.parent)
+        self.parent.attributes("-disabled", True)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def create_chart(self):
@@ -276,6 +311,5 @@ class MyDeckPieChart(tk.Toplevel):
 
     # 關閉視窗時清除
     def on_close(self):
+        self.parent.attributes("-disabled", False)
         self.destroy()
-        if hasattr(self, "app") and hasattr(self.app, "my_pie_chart_window"):
-            self.app.my_pie_chart_window = None

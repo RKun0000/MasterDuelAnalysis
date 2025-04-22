@@ -1,9 +1,15 @@
 import json
 import os
 from tkinter import messagebox
-from tools import my_deck_name, opp_deck_name, get_current_season, get_dc_season
+from tools import (
+    my_deck_name,
+    opp_deck_name,
+    get_current_season,
+    get_dc_season,
+    hand_trap_list,
+)
 
-DATA_VERSION = 1.1
+DATA_VERSION = 1.2
 
 
 def load_data(filename="card_data.json"):
@@ -13,6 +19,7 @@ def load_data(filename="card_data.json"):
             return (
                 my_deck_name(),
                 opp_deck_name(),
+                hand_trap_list(),
                 [],
                 get_current_season(),
                 [],
@@ -24,10 +31,13 @@ def load_data(filename="card_data.json"):
             version = data.get("version", 1)
             my_decks = data.get("my_decks", [])
             opp_decks = data.get("opp_decks", [])
+            hand_traps = data.get("hand_traps", [])
             if not my_decks:
                 my_decks = my_deck_name()
             if not opp_decks:
                 opp_decks = opp_deck_name()
+            if not hand_traps:
+                hand_traps = hand_trap_list()
             if version >= 1.1:
                 records_rank = data.get("records_rank", [])
                 current_season = data.get("current_season", get_current_season())
@@ -49,6 +59,7 @@ def load_data(filename="card_data.json"):
             return (
                 my_decks,
                 opp_decks,
+                hand_traps,
                 records_rank,
                 current_season,
                 records_dc,
@@ -61,6 +72,7 @@ def load_data(filename="card_data.json"):
         return (
             my_deck_name(),
             opp_deck_name(),
+            hand_trap_list(),
             [],
             get_current_season(),
             [],
@@ -71,6 +83,7 @@ def load_data(filename="card_data.json"):
 def save_data(
     my_decks,
     opp_decks,
+    hand_traps,
     records_rank,
     current_season,
     records_dc,
@@ -81,6 +94,7 @@ def save_data(
         "version": DATA_VERSION,
         "my_decks": my_decks,
         "opp_decks": opp_decks,
+        "hand_traps": hand_traps,
         "records_rank": records_rank,
         "current_season": current_season,
         "records_dc": records_dc,

@@ -3,7 +3,6 @@ from tkinter import ttk, messagebox
 from tools import (
     center_window,
     rank_list,
-    hand_trap_list,
     search_for_combobox,
     exclusive,
 )
@@ -13,15 +12,18 @@ class RecordModifyWindow(tk.Toplevel):
     def __init__(self, app, record):
         super().__init__(app.root)
         self.app = app
+        self.parent = app.root
         self.record = record
-        self.hand_trap_options = hand_trap_list()
         self.withdraw()
         self.title("修改紀錄")
         self.geometry("450x450")
         self.update_idletasks()
         self.create_widgets()
         center_window(self, app.root)
-        self.deiconify()  # 顯示視窗
+        self.transient(self.parent)
+        self.deiconify()
+        self.lift(self.parent)
+        self.parent.attributes("-disabled", True)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def create_widgets(self):
@@ -155,11 +157,11 @@ class RecordModifyWindow(tk.Toplevel):
         tk.Label(group6, text="中G以外手坑:").grid(
             row=0, column=0, padx=5, pady=5, sticky="e"
         )
-        self.hand_trap_options = hand_trap_list()
+
         self.hand_trap_vars_mod = {}
         hand_trap_frame = tk.Frame(group6)
         hand_trap_frame.grid(row=0, column=1, columnspan=3, padx=5, pady=5, sticky="w")
-        for i, trap in enumerate(self.hand_trap_options):
+        for i, trap in enumerate(self.app.hand_traps):
             var = tk.BooleanVar(value=False)
             if "hand_traps" in self.record and trap in self.record["hand_traps"]:
                 var.set(True)
@@ -285,8 +287,8 @@ class RecordModifyWindow(tk.Toplevel):
             ),
         )
         self.app.update_statistics()
-        self.destroy()
+        self.on_close()
 
     def on_close(self):
+        self.parent.attributes("-disabled", False)
         self.destroy()
-        self.app.record_modify_window = None

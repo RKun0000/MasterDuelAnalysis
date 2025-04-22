@@ -1,5 +1,6 @@
 import sys, os
 import tkinter as tk
+import wcwidth
 import matplotlib as mpl
 import matplotlib.font_manager as fm
 from datetime import datetime
@@ -19,7 +20,7 @@ def search_for_combobox(combobox, original_list):
         combobox["values"] = filtered
         combobox.set(current_text)
 
-        combobox.icursor(tk.END)
+        # combobox.icursor(tk.END)
         # combobox.event_generate("<Down>")
 
     combobox.bind("<KeyRelease>", on_key_release)
@@ -83,6 +84,10 @@ def compute_streaks(records):
     longest_loss = 0
     current_win = 0
     current_loss = 0
+    longest_head = 0
+    longest_tail = 0
+    current_head = 0
+    current_tail = 0
     sorted_records = sorted(records, key=lambda r: r["id"])
     for rec in sorted_records:
         if rec.get("result") == "勝":
@@ -93,18 +98,43 @@ def compute_streaks(records):
             current_win = 0
         longest_win = max(longest_win, current_win)
         longest_loss = max(longest_loss, current_loss)
-    return longest_win, longest_loss
+
+        if rec.get("coin") == "正面":
+            current_head += 1
+            current_tail = 0
+        else:
+            current_tail += 1
+            current_head = 0
+        longest_head = max(longest_head, current_head)
+        longest_tail = max(longest_tail, current_tail)
+    return longest_win, longest_loss, longest_head, longest_tail
 
 
 def exclusive(active_var, other_var):
-    """若 active_var 被勾選，則取消 other_var；若取消勾選則強制保持 active_var True"""
+
     if active_var.get():
         other_var.set(False)
     else:
         active_var.set(True)
 
 
-# 手坑清單
+# 計算圓餅圖字串的顯示寬度（考慮中英文混合）
+def display_width(text):
+    return sum(wcwidth.wcwidth(ch) for ch in text)
+
+
+def pad_to_width(text, target_width, pad_char="\u3000"):
+
+    current = display_width(text)
+    if current >= target_width:
+        return text
+    pad_width = display_width(pad_char)
+    # 計算需要填充多少個 pad_char (向上取整)
+    num_pad = -(-(target_width - current) // pad_width)
+    return text + pad_char * num_pad
+
+
+# 預設手坑清單
 def hand_trap_list():
     hand_trap_options = [
         "隕石",
@@ -118,11 +148,13 @@ def hand_trap_list():
         "幽鬼兔",
         "深淵獸",
         "應戰G",
+        "聖槍",
+        "PSY",
     ]
     return hand_trap_options
 
 
-# 初始卡組名稱清單
+# 預設初始卡組名稱清單
 def my_deck_name():
     my_decks = [
         "刻魔蛇眼",
